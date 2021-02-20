@@ -16,6 +16,7 @@ from tqdm import tqdm
 import cv2
 import json
 import numpy as np
+import norfair
 import sys
 import time
 import torch.multiprocessing as mp
@@ -606,6 +607,17 @@ class WebcamLoader:
         # indicate that the thread should be stopped
         self.stopped = True
 
+detection_threshold = 0.2
+keypoint_dist_threshold = None
+def keypoints_distance(detected_pose, tracked_pose):
+    distances = np.linalg.norm(detected_pose.points - tracked_pose.estimate, axis=1)
+    match_num = np.count_nonzero(
+        (distances < keypoint_dist_threshold)
+        * (detected_pose.scores > detection_threshold)
+        * (tracked_pose.last_detection.scores > detection_threshold)
+    )
+    return 1 / (1 + match_num)
+
 class DataWriter:
     def __init__(self, save_video=False,
                 savepath='examples/res/1.avi', fourcc=cv2.VideoWriter_fourcc(*'XVID'), fps=25, frameSize=(640,480),
@@ -624,6 +636,13 @@ class DataWriter:
         if opt.save_img:
             if not os.path.exists(opt.outputpath + '/vis'):
                 os.mkdir(opt.outputpath + '/vis')
+
+        self.tracker = norfair.Tracker(
+            distance_function=keypoints_distance,
+            distance_threshold=0.3,
+            detection_threshold=0.2
+        )
+
 
     def start(self):
         # start a thread to read frames from the file video stream
@@ -672,7 +691,15 @@ class DataWriter:
                     }
                     self.final_result.append(result)
                     if opt.save_img or opt.save_video or opt.vis:
-                        img = vis_frame(orig_img, result)
+                        img = orig_img.copy()
+                        global keypoint_dist_threshold
+                        keypoint_dist_threshold = img.shape[0] / 30
+                        detections = [
+                            norfair.Detection(p['keypoints'].numpy(), scores=p['kp_score'].squeeze().numpy())
+                            for p in result['result']
+                        ]
+                        tracked_objects = self.tracker.update(detections=detections)
+                        norfair.draw_tracked_objects(img, tracked_objects)
                         if opt.vis:
                             cv2.imshow("AlphaPose Demo", img)
                             cv2.waitKey(30)
