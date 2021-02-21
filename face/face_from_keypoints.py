@@ -20,7 +20,7 @@ class Face:
         self.face_engine.transform(orig_img.shape[0], orig_img.shape[1])
         face_dets, lms = self.face_engine(orig_img, threshold=0.35)
 
-        for idx, person in enumerate(tracked_objects):
+        for person in tracked_objects:
 
             # person is TrackedObject class in Norfair
             # Ref. https://github.com/tryolabs/norfair/blob/e062198487c12b32ca8b2197bc21227898d2dd31/norfair/tracker.py#L187

@@ -125,6 +125,25 @@ def vis_frame_fast(frame, im_res, format='coco'):
         kp_scores = human['kp_score']
         kp_preds = torch.cat((kp_preds, torch.unsqueeze((kp_preds[5,:]+kp_preds[6,:])/2,0)))
         kp_scores = torch.cat((kp_scores, torch.unsqueeze((kp_scores[5,:]+kp_scores[6,:])/2,0)))
+
+        # Draw bboxes
+        if 'box' in human.keys():
+            bbox = human['box']
+            bbox = [bbox[0], bbox[0]+bbox[2], bbox[1], bbox[1]+bbox[3]]#xmin,xmax,ymin,ymax
+        else:
+            from trackers.PoseFlow.poseflow_infer import get_box
+            keypoints = []
+            for n in range(kp_scores.shape[0]):
+                keypoints.append(float(kp_preds[n, 0]))
+                keypoints.append(float(kp_preds[n, 1]))
+                keypoints.append(float(kp_scores[n]))
+            # bbox = get_box(keypoints, height, width)
+            
+            # Only head
+            bbox = get_box(keypoints[1], height, width)
+        
+        cv2.rectangle(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[3])), color, 2)
+                
         # Draw keypoints
         for n in range(kp_scores.shape[0]):
             if kp_scores[n] <= 0.05:

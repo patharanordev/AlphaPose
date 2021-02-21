@@ -38,7 +38,7 @@ if opt.vis_fast:
 else:
     from fn import vis_frame
 
-
+face = Face()
 class Image_loader(data.Dataset):
     def __init__(self, im_names, format='yolo'):
         super(Image_loader, self).__init__()
@@ -659,8 +659,6 @@ class DataWriter:
 
     def update(self):
 
-        face = Face()
-    
         # keep looping infinitely
         while True:
             # if the thread indicator variable is set, stop the
