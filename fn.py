@@ -119,6 +119,7 @@ def vis_frame_fast(frame, im_res, format='coco'):
 
     im_name = im_res['imgname'].split('/')[-1]
     img = frame
+    height, width = img.shape[:2]
     for human in im_res['result']:
         part_line = {}
         kp_preds = human['keypoints']
@@ -137,10 +138,7 @@ def vis_frame_fast(frame, im_res, format='coco'):
                 keypoints.append(float(kp_preds[n, 0]))
                 keypoints.append(float(kp_preds[n, 1]))
                 keypoints.append(float(kp_scores[n]))
-            # bbox = get_box(keypoints, height, width)
-            
-            # Only head
-            bbox = get_box(keypoints[1], height, width)
+            bbox = get_box(keypoints, height, width)
         
         cv2.rectangle(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[3])), color, 2)
                 
