@@ -645,7 +645,7 @@ class DataWriter:
             distance_threshold=0.3,
             detection_threshold=0.2
         )
-
+        self.vdo_fname = ''
 
     def start(self):
         # start a thread to read frames from the file video stream
@@ -653,6 +653,9 @@ class DataWriter:
         t.daemon = True
         t.start()
         return self
+
+    def set_vdo_fname(self, name):
+        self.vdo_fname = name
 
     def update(self):
 
@@ -709,7 +712,7 @@ class DataWriter:
 
                         tracked_objects = self.tracker.update(detections=detections)
 
-                        face.export_face_img(tracked_objects, img, './examples/res/vis/')
+                        face.export_face_img(tracked_objects, img, './examples/res/vis/', self.vdo_fname)
 
                         norfair.draw_tracked_objects(img, tracked_objects)
                         if opt.vis:
@@ -726,6 +729,11 @@ class DataWriter:
         # indicate that the thread is still running
         time.sleep(0.2)
         print('Current queue size :', self.Q.qsize())
+
+        if self.Q.empty():
+            face.export_data('./examples/res/data.csv')
+            face.clear_data()
+
         return not self.Q.empty()
 
     def save(self, boxes, scores, hm_data, pt1, pt2, orig_img, im_name):

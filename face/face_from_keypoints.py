@@ -1,20 +1,24 @@
 import numpy as np
 import cv2
 from face.centerface import CenterFace
-
+import pandas as pd
 class Face:
     def __init__(self):
-        pass
+        self.face_engine = CenterFace( landmarks=True)
+        self.data = {}
 
-    def export_face_img(self, tracked_objects, orig_img, dir_path):
+    def clear_data():
+        self.data = {}
+
+    def export_data(fpath):
+        pd.DataFrame(self.data).T.to_csv(fpath)
+
+    def export_face_img(self, tracked_objects, orig_img, dir_path, vdo_fname='id'):
         is_finished = False
-        face_engine = CenterFace( landmarks=True)
         rgb_img = orig_img[:, :, ::-1]
         [H, W, _] = rgb_img.shape
-        face_engine.transform(orig_img.shape[0], orig_img.shape[1])
-        face_dets, lms = face_engine(orig_img, threshold=0.35)
-
-        result_new = []
+        self.face_engine.transform(orig_img.shape[0], orig_img.shape[1])
+        face_dets, lms = self.face_engine(orig_img, threshold=0.35)
 
         for idx, person in enumerate(tracked_objects):
 
@@ -23,6 +27,8 @@ class Face:
             keypoints = person.last_detection.points
             kp_score = person.last_detection.scores
             pid = person.id
+
+            self.data[pid] = { 'img_path':'{}-{}.jpg'.format(vdo_fname, pid), 'found_face':False }
 
             center_of_the_face = np.mean(keypoints[:5], axis=0)
             face_conf = np.mean(kp_score[:5], axis=0)
@@ -43,5 +49,6 @@ class Face:
 
                 cv2.imwrite('{}/{}.jpg'.format(dir_path, pid), face_image)
                 is_finished = True
+                self.data[pid]['found_face'] = True
         
         return is_finished
