@@ -23,6 +23,9 @@ import torch.multiprocessing as mp
 from multiprocessing import Process
 from multiprocessing import Queue as pQueue
 from threading import Thread
+
+from face.face_from_keypoints import Face
+
 # import the Queue class from Python 3
 if sys.version_info >= (3, 0):
     from queue import Queue, LifoQueue
@@ -652,6 +655,9 @@ class DataWriter:
         return self
 
     def update(self):
+
+        face = Face()
+    
         # keep looping infinitely
         while True:
             # if the thread indicator variable is set, stop the
@@ -694,11 +700,17 @@ class DataWriter:
                         img = orig_img.copy()
                         global keypoint_dist_threshold
                         keypoint_dist_threshold = img.shape[0] / 30
+
+                        # List of class object of Norfair's Detection(points, scores)
                         detections = [
                             norfair.Detection(p['keypoints'].numpy(), scores=p['kp_score'].squeeze().numpy())
                             for p in result['result']
                         ]
+
                         tracked_objects = self.tracker.update(detections=detections)
+
+                        face.export_face_img(tracked_objects, img, './examples/res/vis/')
+
                         norfair.draw_tracked_objects(img, tracked_objects)
                         if opt.vis:
                             cv2.imshow("AlphaPose Demo", img)
