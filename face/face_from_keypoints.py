@@ -7,6 +7,7 @@ class Face:
         pass
 
     def export_face_img(self, tracked_objects, orig_img, dir_path):
+        is_finished = False
         face_engine = CenterFace( landmarks=True)
         rgb_img = orig_img[:, :, ::-1]
         [H, W, _] = rgb_img.shape
@@ -41,3 +42,6 @@ class Face:
                 face_image = rgb_img[int(face_bbox[1]): int(face_bbox[3]), int(face_bbox[0]): int(face_bbox[2])]
 
                 cv2.imwrite('{}/{}.jpg'.format(dir_path, pid), face_image)
+                is_finished = True
+        
+        return is_finished
