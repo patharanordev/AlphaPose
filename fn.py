@@ -140,7 +140,7 @@ def vis_frame_fast(frame, im_res, format='coco'):
                 keypoints.append(float(kp_scores[n]))
             bbox = get_box(keypoints, height, width)
         
-        cv2.rectangle(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[3])), color, 2)
+        cv2.rectangle(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[3])), GREEN, 2)
                 
         # Draw keypoints
         for n in range(kp_scores.shape[0]):
