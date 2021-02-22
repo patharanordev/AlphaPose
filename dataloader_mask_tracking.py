@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw
 from SPPE.src.utils.img import load_image, cropBox, im_to_torch
 from opt import opt
 from yolo.preprocess import prep_image, prep_frame, inp_to_image
-from pPose_nms import pose_nms, write_json
+from pPose_nms import pose_nms, pose_nms_modified, write_json
 from matching import candidate_reselect as matching
 from SPPE.src.utils.eval import getPrediction, getMultiPeakPrediction
 from yolo.util import write_results, dynamic_write_results
@@ -23,9 +23,6 @@ import torch.multiprocessing as mp
 from multiprocessing import Process
 from multiprocessing import Queue as pQueue
 from threading import Thread
-
-from face.face_from_keypoints import Face
-
 # import the Queue class from Python 3
 if sys.version_info >= (3, 0):
     from queue import Queue, LifoQueue
@@ -38,7 +35,7 @@ if opt.vis_fast:
 else:
     from fn import vis_frame
 
-face = Face()
+
 class Image_loader(data.Dataset):
     def __init__(self, im_names, format='yolo'):
         super(Image_loader, self).__init__()
@@ -318,7 +315,7 @@ class DetectionLoader:
         for i in range(self.num_batches):
             img, orig_img, im_name, im_dim_list = self.dataloder.getitem()
             if img is None:
-                self.Q.put((None, None, None, None, None, None, None))
+                self.Q.put((None, None, None, None, None, None, None, None))
                 return
 
             with torch.no_grad():
@@ -332,7 +329,7 @@ class DetectionLoader:
                     for k in range(len(orig_img)):
                         if self.Q.full():
                             time.sleep(2)
-                        self.Q.put((orig_img[k], im_name[k], None, None, None, None, None))
+                        self.Q.put((orig_img[k], im_name[k], None, None, None, None, None, None))
                     continue
                 dets = dets.cpu()
                 im_dim_list = torch.index_select(im_dim_list,0, dets[:, 0].long())
@@ -349,20 +346,21 @@ class DetectionLoader:
                     dets[j, [2, 4]] = torch.clamp(dets[j, [2, 4]], 0.0, im_dim_list[j, 1])
                 boxes = dets[:, 1:5]
                 scores = dets[:, 5:6]
+                ids = dets[:, 6:7]
 
             for k in range(len(orig_img)):
                 boxes_k = boxes[dets[:,0]==k]
                 if isinstance(boxes_k, int) or boxes_k.shape[0] == 0:
                     if self.Q.full():
                         time.sleep(2)
-                    self.Q.put((orig_img[k], im_name[k], None, None, None, None, None))
+                    self.Q.put((orig_img[k], im_name[k], None, None, None, None, None, None))
                     continue
                 inps = torch.zeros(boxes_k.size(0), 3, opt.inputResH, opt.inputResW)
                 pt1 = torch.zeros(boxes_k.size(0), 2)
                 pt2 = torch.zeros(boxes_k.size(0), 2)
                 if self.Q.full():
                     time.sleep(2)
-                self.Q.put((orig_img[k], im_name[k], boxes_k, scores[dets[:,0]==k], inps, pt1, pt2))
+                self.Q.put((orig_img[k], im_name[k], boxes_k, scores[dets[:,0]==k], ids[dets[:, 0] == k], inps, pt1, pt2))
 
     def read(self):
         # return next frame in the queue
@@ -404,21 +402,23 @@ class DetectionProcessor:
         for i in range(self.datalen):
             
             with torch.no_grad():
-                (orig_img, im_name, boxes, scores, inps, pt1, pt2) = self.detectionLoader.read()
+                # (orig_img, im_name, boxes, scores, inps, pt1, pt2) = self.detectionLoader.read()
+                (orig_img, im_name, boxes, scores, ids, inps, pt1, pt2) = self.detectionLoader.read()
                 if orig_img is None:
-                    self.Q.put((None, None, None, None, None, None, None))
+                    self.Q.put((None, None, None, None, None, None, None, None))
                     return
                 if boxes is None or boxes.nelement() == 0:
                     while self.Q.full():
                         time.sleep(0.2)
-                    self.Q.put((None, orig_img, im_name, boxes, scores, None, None))
+                    self.Q.put((None, orig_img, im_name, boxes, scores, ids, None, None))
                     continue
                 inp = im_to_torch(cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB))
                 inps, pt1, pt2 = crop_from_dets(inp, boxes, inps, pt1, pt2)
 
                 while self.Q.full():
                     time.sleep(0.2)
-                self.Q.put((inps, orig_img, im_name, boxes, scores, pt1, pt2))
+                # self.Q.put((inps, orig_img, im_name, boxes, scores, pt1, pt2))
+                self.Q.put((inps, orig_img, im_name, boxes, scores, ids, pt1, pt2))
 
     def read(self):
         # return next frame in the queue
@@ -645,7 +645,7 @@ class DataWriter:
             distance_threshold=0.3,
             detection_threshold=0.2
         )
-        self.vdo_fname = ''
+
 
     def start(self):
         # start a thread to read frames from the file video stream
@@ -654,11 +654,7 @@ class DataWriter:
         t.start()
         return self
 
-    def set_vdo_fname(self, name):
-        self.vdo_fname = name
-
     def update(self):
-
         # keep looping infinitely
         while True:
             # if the thread indicator variable is set, stop the
@@ -669,7 +665,9 @@ class DataWriter:
                 return
             # otherwise, ensure the queue is not empty
             if not self.Q.empty():
-                (boxes, scores, hm_data, pt1, pt2, orig_img, im_name) = self.Q.get()
+                # (boxes, scores, hm_data, pt1, pt2, orig_img, im_name) = self.Q.get()
+                (boxes, scores, ids, hm_data, pt1, pt2, orig_img, im_name) = self.Q.get()
+
                 orig_img = np.array(orig_img, dtype=np.uint8)
                 if boxes is None:
                     if opt.save_img or opt.save_video or opt.vis:
@@ -682,36 +680,50 @@ class DataWriter:
                         if opt.save_video:
                             self.stream.write(img)
                 else:
-                    # location prediction (n, kp, 2) | score prediction (n, kp, 1)
-                    if opt.matching:
-                        preds = getMultiPeakPrediction(
-                            hm_data, pt1.numpy(), pt2.numpy(), opt.inputResH, opt.inputResW, opt.outputResH, opt.outputResW)
-                        result = matching(boxes, scores.numpy(), preds)
-                    else:
-                        preds_hm, preds_img, preds_scores = getPrediction(
+                    # # location prediction (n, kp, 2) | score prediction (n, kp, 1)
+                    # if opt.matching:
+                    #     preds = getMultiPeakPrediction(
+                    #         hm_data, pt1.numpy(), pt2.numpy(), opt.inputResH, opt.inputResW, opt.outputResH, opt.outputResW)
+                    #     result = matching(boxes, scores.numpy(), preds)
+                    # else:
+                    #     preds_hm, preds_img, preds_scores = getPrediction(
+                    #         hm_data, pt1, pt2, opt.inputResH, opt.inputResW, opt.outputResH, opt.outputResW)
+                    #     result = pose_nms(
+                    #         boxes, scores, preds_img, preds_scores)
+                    
+                    preds_hm, preds_img, preds_scores = getPrediction(
                             hm_data, pt1, pt2, opt.inputResH, opt.inputResW, opt.outputResH, opt.outputResW)
-                        result = pose_nms(
-                            boxes, scores, preds_img, preds_scores)
+                        
+                    boxes, scores, ids, preds_img, preds_scores, pick_ids = \
+                        pose_nms_modified(boxes, scores, ids, preds_img, preds_scores)
+
+                    _result = []
+                    for k in range(len(scores)):
+                        _result.append(
+                            {
+                                'keypoints':preds_img[k],
+                                'kp_score':preds_scores[k],
+                                'proposal_score': torch.mean(preds_scores[k]) + scores[k] + 1.25 * max(preds_scores[k]),
+                                'idx':ids[k],
+                                'bbox':[boxes[k][0], boxes[k][1], boxes[k][2]-boxes[k][0],boxes[k][3]-boxes[k][1]] 
+                            }
+                        )
+
                     result = {
                         'imgname': im_name,
-                        'result': result
+                        'result': _result
                     }
+
                     self.final_result.append(result)
                     if opt.save_img or opt.save_video or opt.vis:
                         img = orig_img.copy()
                         global keypoint_dist_threshold
                         keypoint_dist_threshold = img.shape[0] / 30
-
-                        # List of class object of Norfair's Detection(points, scores)
                         detections = [
                             norfair.Detection(p['keypoints'].numpy(), scores=p['kp_score'].squeeze().numpy())
                             for p in result['result']
                         ]
-
                         tracked_objects = self.tracker.update(detections=detections)
-
-                        face.export_face_img(tracked_objects, img, './examples/res/vis/', self.vdo_fname)
-
                         norfair.draw_tracked_objects(img, tracked_objects)
                         if opt.vis:
                             cv2.imshow("AlphaPose Demo", img)
@@ -726,17 +738,14 @@ class DataWriter:
     def running(self):
         # indicate that the thread is still running
         time.sleep(0.2)
-        print('Current queue size :', self.Q.qsize())
-
-        if self.Q.empty():
-            face.export_data('./examples/res/data.csv')
-            face.clear_data()
-
         return not self.Q.empty()
 
-    def save(self, boxes, scores, hm_data, pt1, pt2, orig_img, im_name):
-        # save next frame in the queue
-        self.Q.put((boxes, scores, hm_data, pt1, pt2, orig_img, im_name))
+    def save(self, boxes, scores, ids, hm_data, pt1, pt2, orig_img, im_name):
+        self.Q.put((boxes, scores, ids, hm_data, pt1, pt2, orig_img, im_name))
+
+    # def save(self, boxes, scores, hm_data, pt1, pt2, orig_img, im_name):
+    #     # save next frame in the queue
+    #     self.Q.put((boxes, scores, hm_data, pt1, pt2, orig_img, im_name))
 
     def stop(self):
         # indicate that the thread should be stopped

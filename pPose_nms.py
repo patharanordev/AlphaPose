@@ -19,6 +19,128 @@ areaThres = 0#40 * 40.5
 alpha = 0.1
 #pool = ThreadPool(4)
 
+def PCK_match(pick_pred, all_preds, ref_dist):
+    dist = torch.sqrt(torch.sum(
+        torch.pow(pick_pred[np.newaxis, :] - all_preds, 2),
+        dim=2
+    ))
+    ref_dist = min(ref_dist, 7)
+    num_match_keypoints = torch.sum(
+        dist / ref_dist <= 1,
+        dim=1
+    )
+
+    return num_match_keypoints
+
+def pose_nms_modified(bboxes, bbox_scores, bbox_ids, pose_preds, pose_scores, areaThres=0):
+    '''
+    Parametric Pose NMS algorithm
+    bboxes:         bbox locations list (n, 4)
+    bbox_scores:    bbox scores list (n, 1)
+    bbox_ids:       bbox tracking ids list (n, 1)
+    pose_preds:     pose locations list (n, kp_num, 2)
+    pose_scores:    pose scores list    (n, kp_num, 1)
+    '''
+    #global ori_pose_preds, ori_pose_scores, ref_dists
+
+    pose_scores[pose_scores == 0] = 1e-5
+    kp_nums = pose_preds.size()[1]
+    res_bboxes, res_bbox_scores, res_bbox_ids, res_pose_preds, res_pose_scores, res_pick_ids = [],[],[],[],[],[]
+    
+    ori_bboxes = bboxes.clone()
+    ori_bbox_scores = bbox_scores.clone()
+    ori_bbox_ids = bbox_ids.clone()
+    ori_pose_preds = pose_preds.clone()
+    ori_pose_scores = pose_scores.clone()
+
+    xmax = bboxes[:, 2]
+    xmin = bboxes[:, 0]
+    ymax = bboxes[:, 3]
+    ymin = bboxes[:, 1]
+
+    widths = xmax - xmin
+    heights = ymax - ymin
+    ref_dists = alpha * np.maximum(widths, heights)
+
+    nsamples = bboxes.shape[0]
+    human_scores = pose_scores.mean(dim=1)
+
+    human_ids = np.arange(nsamples)
+    mask = np.ones(len(human_ids)).astype(bool)
+    
+    # Do pPose-NMS
+    pick = []
+    merge_ids = []
+    while(mask.any()):
+        tensor_mask = torch.Tensor(mask)==True
+        # Pick the one with highest score
+        pick_id = torch.argmax(human_scores[tensor_mask])
+        pick.append(human_ids[mask][pick_id])
+
+        # Get numbers of match keypoints by calling PCK_match
+        ref_dist = ref_dists[human_ids[mask][pick_id]]
+        simi = get_parametric_distance(pick_id, pose_preds[tensor_mask], pose_scores[tensor_mask], ref_dist)
+        num_match_keypoints = PCK_match(pose_preds[tensor_mask][pick_id], pose_preds[tensor_mask], ref_dist)
+
+        # Delete humans who have more than matchThreds keypoints overlap and high similarity
+        delete_ids = torch.from_numpy(np.arange(human_scores[tensor_mask].shape[0]))[((simi > gamma) | (num_match_keypoints >= matchThreds))]
+
+        if delete_ids.shape[0] == 0:
+            delete_ids = pick_id
+
+        merge_ids.append(human_ids[mask][delete_ids])
+        newmask = mask[mask]
+        newmask[delete_ids] = False
+        mask[mask] = newmask
+
+
+    assert len(merge_ids) == len(pick)
+    preds_pick = ori_pose_preds[pick]
+    scores_pick = ori_pose_scores[pick]
+    bbox_scores_pick = ori_bbox_scores[pick]
+    bboxes_pick = ori_bboxes[pick]
+    bbox_ids_pick = ori_bbox_ids[pick]
+    #final_result = pool.map(filter_result, zip(scores_pick, merge_ids, preds_pick, pick, bbox_scores_pick))
+    #final_result = [item for item in final_result if item is not None]
+
+    for j in range(len(pick)):
+        ids = np.arange(kp_nums)
+        max_score = torch.max(scores_pick[j, ids, 0])
+
+        if max_score < scoreThreds:
+            continue
+
+        # Merge poses
+        merge_id = merge_ids[j]
+        merge_pose, merge_score = p_merge_fast(
+            preds_pick[j], ori_pose_preds[merge_id], ori_pose_scores[merge_id], ref_dists[pick[j]])
+
+        max_score = torch.max(merge_score[ids])
+        if max_score < scoreThreds:
+            continue
+
+        xmax = max(merge_pose[:, 0])
+        xmin = min(merge_pose[:, 0])
+        ymax = max(merge_pose[:, 1])
+        ymin = min(merge_pose[:, 1])
+        bbox = bboxes_pick[j].cpu().tolist()
+        bbox_score = bbox_scores_pick[j].cpu()
+
+        if (1.5 ** 2 * (xmax - xmin) * (ymax - ymin) < areaThres):
+            continue
+
+
+        res_bboxes.append(bbox)
+        res_bbox_scores.append(bbox_score)
+        res_bbox_ids.append(ori_bbox_ids[merge_id].tolist())
+        res_pose_preds.append(merge_pose)
+        res_pose_scores.append(merge_score)
+        res_pick_ids.append(pick[j])
+
+ 
+
+    return res_bboxes, res_bbox_scores, res_bbox_ids, res_pose_preds, res_pose_scores, res_pick_ids
+
 
 def pose_nms(bboxes, bbox_scores, pose_preds, pose_scores):
     '''
