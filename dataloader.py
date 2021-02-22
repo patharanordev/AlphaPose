@@ -692,7 +692,6 @@ class DataWriter:
                     self.final_result.append(result)
                     if opt.save_img or opt.save_video or opt.vis:
                         img = orig_img.copy()
-                        vis_frame(orig_img.copy(), result)
                         global keypoint_dist_threshold
                         keypoint_dist_threshold = img.shape[0] / 30
                         detections = [
