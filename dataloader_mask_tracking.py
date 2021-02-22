@@ -36,6 +36,27 @@ else:
     from fn import vis_frame
 
 
+
+def validate_points(points: np.array) -> np.array:
+    # If the user is tracking only a single point, reformat it slightly.
+    if points.shape == (2,):
+        points = points[np.newaxis, ...]
+    elif len(points.shape) == 1:
+        print_detection_error_message_and_exit(points)
+    else:
+        if points.shape[1] != 2 or len(points.shape) > 2:
+            print_detection_error_message_and_exit(points)
+    return points
+
+
+def print_detection_error_message_and_exit(points):
+    print("\n[red]INPUT ERROR:[/red]")
+    print(
+        f"Each `Detection` object should have a property `points` of shape (num_of_points_to_track, 2), not {points.shape}. Check your `Detection` list creation code."
+    )
+    print("You can read the documentation for the `Detection` class here:")
+    print("https://github.com/tryolabs/norfair/tree/master/docs#detection\n")
+
 class Image_loader(data.Dataset):
     def __init__(self, im_names, format='yolo'):
         super(Image_loader, self).__init__()
@@ -700,7 +721,7 @@ class DataWriter:
                         ]
                         tracked_objects = self.tracker.update(detections=detections)
                         norfair.draw_tracked_objects(img, tracked_objects)
-                        self.cropped(img, tracked_objects)
+                        self.cropped(orig_img.copy(), tracked_objects)
 
                         if opt.vis:
                             cv2.imshow("AlphaPose Demo", img)
@@ -738,16 +759,27 @@ class DataWriter:
                 line_color = (0, 255, 0) # Color.random(obj.id)
 
             if draw_box:
-                points = obj.estimate
+                # points = obj.estimate
+                # points = points.astype(int)
+                # cropped_img = cv2.rectangle(
+                #     frame,
+                #     tuple(points[0, :]),
+                #     tuple(points[1, :]),
+                #     color=line_color,
+                #     thickness=line_width,
+                # )
+                points = obj.last_detection.points
+                points = validate_points(points)
                 points = points.astype(int)
-                cropped_img = cv2.rectangle(
+                cv2.rectangle(
                     frame,
                     tuple(points[0, :]),
                     tuple(points[1, :]),
                     color=line_color,
                     thickness=line_width,
                 )
-                cv2.imwrite(os.path.join(opt.outputpath, 'vis', '{}.jpg'.format(obj.id)), cropped_img)
+
+                cv2.imwrite(os.path.join(opt.outputpath, 'vis', '{}.jpg'.format(obj.id)), frame)
 
     def running(self):
         # indicate that the thread is still running

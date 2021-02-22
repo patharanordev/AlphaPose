@@ -35,7 +35,6 @@ if opt.vis_fast:
 else:
     from fn import vis_frame
 
-
 class Image_loader(data.Dataset):
     def __init__(self, im_names, format='yolo'):
         super(Image_loader, self).__init__()
@@ -789,8 +788,6 @@ class DataWriter:
                     thickness=line_width,
                 )
                 cv2.imwrite(os.path.join(opt.outputpath, 'vis', '{}.jpg'.format(obj.id)), cropped_img)
-
-
 
     def running(self):
         # indicate that the thread is still running
