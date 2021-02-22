@@ -744,6 +744,7 @@ class DataWriter:
         id_thickness=None,
         draw_box=True,
     ):
+        color = (0, 255, 0)
         frame_scale = frame.shape[0] / 100
         if line_width is None:
             line_width = int(frame_scale * 0.5)
@@ -756,9 +757,11 @@ class DataWriter:
             if not obj.live_points.any():
                 continue
             if color_is_None:
-                line_color = (0, 255, 0) # Color.random(obj.id)
+                line_color = color # Color.random(obj.id)
 
             if draw_box:
+
+                # Original mark:
                 # points = obj.estimate
                 # points = points.astype(int)
                 # cropped_img = cv2.rectangle(
@@ -768,16 +771,29 @@ class DataWriter:
                 #     color=line_color,
                 #     thickness=line_width,
                 # )
-                points = obj.last_detection.points
-                points = validate_points(points)
-                points = points.astype(int)
-                cv2.rectangle(
-                    frame,
-                    tuple(points[0, :]),
-                    tuple(points[1, :]),
-                    color=line_color,
-                    thickness=line_width,
-                )
+
+                # Test mark:
+                # points = obj.last_detection.points
+                # points = validate_points(points)
+                # points = points.astype(int)
+                # cv2.rectangle(
+                #     frame,
+                #     tuple(points[0, :]),
+                #     tuple(points[1, :]),
+                #     color=line_color,
+                #     thickness=line_width,
+                # )
+
+                # Mark head based on keypoint:
+                print('{} : {}'.format(obj.id, points))
+                for point in points[:5,:]:
+                    cv2.circle(
+                        frame,
+                        tuple(point.astype(int)),
+                        radius=int(max(frame_scale * 0.7, 1)),
+                        color=color,
+                        thickness=id_thickness,
+                    )
 
                 cv2.imwrite(os.path.join(opt.outputpath, 'vis', '{}.jpg'.format(obj.id)), frame)
 
