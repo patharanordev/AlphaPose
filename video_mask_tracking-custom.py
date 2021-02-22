@@ -8,7 +8,7 @@ import torch.utils.data
 import numpy as np
 from opt import opt
 
-from dataloader import VideoLoader, DetectionLoader, DetectionProcessor, DataWriter, Mscoco
+from dataloader_mask_tracking import VideoLoader, DetectionLoader, DetectionProcessor, DataWriter, Mscoco
 from yolo.util import write_results, dynamic_write_results
 from SPPE.src.main_fast_inference import *
 
@@ -71,7 +71,8 @@ if __name__ == "__main__":
     for i in im_names_desc:
         start_time = getTime()
         with torch.no_grad():
-            (inps, orig_img, im_name, boxes, scores, pt1, pt2) = det_processor.read()
+            # (inps, orig_img, im_name, boxes, scores, pt1, pt2) = det_processor.read()
+            (inps, orig_img, im_name, boxes, scores, ids, pt1, pt2) = det_processor.read()
             if orig_img is None:
                 break
             if boxes is None or boxes.nelement() == 0:
@@ -97,7 +98,8 @@ if __name__ == "__main__":
             runtime_profile['pt'].append(pose_time)
 
             hm = hm.cpu().data
-            writer.save(boxes, scores, hm, pt1, pt2, orig_img, im_name.split('/')[-1])
+            # writer.save(boxes, scores, hm, pt1, pt2, orig_img, im_name.split('/')[-1])
+            writer.save(boxes, scores, ids, hm, pt1, pt2, orig_img, im_name.split('/')[-1])
 
             ckpt_time, post_time = getTime(ckpt_time)
             runtime_profile['pn'].append(post_time)
