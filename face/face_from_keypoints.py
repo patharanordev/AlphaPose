@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 from face.centerface import CenterFace
 import pandas as pd
+import time
 class Face:
     def __init__(self):
         self.face_engine = CenterFace( landmarks=True)
@@ -47,7 +48,7 @@ class Face:
 
                 face_image = orig_img[int(face_bbox[1]): int(face_bbox[3]), int(face_bbox[0]): int(face_bbox[2])]
 
-                cv2.imwrite('{}/{}.jpg'.format(dir_path, pid), face_image)
+                cv2.imwrite('{}/{}-{}.jpg'.format(dir_path, pid, time.time()), face_image)
                 is_finished = True
                 self.data[pid]['found_face'] = True
         
