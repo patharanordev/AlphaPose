@@ -36,6 +36,9 @@ else:
     from fn import vis_frame
 
 from data_recorder import DataRecorder
+from face.face_from_keypoints import Face
+
+face = Face()
 
 def validate_points(points: np.array) -> np.array:
     # If the user is tracking only a single point, reformat it slightly.
@@ -670,7 +673,7 @@ class DataWriter:
         self.data_recorder.clear_data()
 
     def export_data(self, fname):
-        self.data_recorder.export_data(os.path.join(opt.outputpath, 'vis') , '{}.csv'.format(fname))
+        self.data_recorder.export_data(os.path.join(opt.outputpath, 'vis') , '{}'.format(fname))
 
     def start(self):
         # start a thread to read frames from the file video stream
@@ -728,7 +731,9 @@ class DataWriter:
                         ]
                         tracked_objects = self.tracker.update(detections=detections)
                         norfair.draw_tracked_objects(img, tracked_objects)
-                        self.cropped(orig_img.copy(), tracked_objects)
+
+                        # self.cropped(orig_img.copy(), tracked_objects)
+                        face.export_face_img(tracked_objects, orig_img.copy(), os.path.join(opt.outputpath, 'vis'), vdo_fname='id')
 
                         if opt.vis:
                             cv2.imshow("AlphaPose Demo", img)
@@ -810,6 +815,8 @@ class DataWriter:
     def running(self):
         # indicate that the thread is still running
         time.sleep(0.2)
+        if self.Q.qsize() > 0:
+            print('Remaining in queue : ', self.Q.qsize())
         return not self.Q.empty()
 
     def save(self, boxes, scores, hm_data, pt1, pt2, orig_img, im_name):
