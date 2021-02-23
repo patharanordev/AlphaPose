@@ -787,7 +787,7 @@ class DataWriter:
                 # Mark head based on keypoint:
                 points = obj.last_detection.points
                 points = validate_points(points)
-                print('{} : {}'.format(obj.id, points))
+                # print('{} : {}'.format(obj.id, points))
                 for point in points:
                     cv2.circle(
                         frame,
