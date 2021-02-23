@@ -63,7 +63,8 @@ if __name__ == "__main__":
     }
 
     # Data writer
-    save_path = os.path.join(args.outputpath, 'AlphaPose_'+ntpath.basename(videofile).split('.')[0]+'.avi')
+    vdo_fname = ntpath.basename(videofile).split('.')[0]
+    save_path = os.path.join(args.outputpath, 'AlphaPose_'+vdo_fname+'.avi')
     writer = DataWriter(args.save_video, save_path, cv2.VideoWriter_fourcc(*'XVID'), fps, frameSize).start()
 
     im_names_desc =  tqdm(range(data_loader.length()))
@@ -116,5 +117,6 @@ if __name__ == "__main__":
     while(writer.running()):
         pass
     writer.stop()
+    writer.export_data(vdo_fname)
     final_result = writer.results()
     write_json(final_result, args.outputpath)

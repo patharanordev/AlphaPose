@@ -35,7 +35,7 @@ if opt.vis_fast:
 else:
     from fn import vis_frame
 
-
+from data_recorder import DataRecorder
 
 def validate_points(points: np.array) -> np.array:
     # If the user is tracking only a single point, reformat it slightly.
@@ -663,7 +663,14 @@ class DataWriter:
             distance_threshold=0.3,
             detection_threshold=0.2
         )
+        
+        self.data_recorder = DataRecorder()
 
+    def clear_data(self):
+        self.data_recorder.clear_data()
+
+    def export_data(self, fname):
+        self.data_recorder.export_data(os.path.join(opt.outputpath, 'vis') , '{}.csv'.format(fname))
 
     def start(self):
         # start a thread to read frames from the file video stream
@@ -798,6 +805,7 @@ class DataWriter:
                     )
 
                 cv2.imwrite(os.path.join(opt.outputpath, 'vis', '{}.jpg'.format(obj.id)), frame)
+                self.data_recorder.append_data(obj.id, 'found')
 
     def running(self):
         # indicate that the thread is still running
