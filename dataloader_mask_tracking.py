@@ -809,7 +809,7 @@ class DataWriter:
                         thickness=id_thickness,
                     )
 
-                cv2.imwrite(os.path.join(opt.outputpath, 'vis', '{}.jpg'.format(obj.id)), frame)
+                cv2.imwrite(os.path.join(opt.outputpath, 'vis', '{}-{}.jpg'.format(obj.id, time.time())), frame)
                 self.data_recorder.append_data(obj.id, 'found')
 
     def running(self):

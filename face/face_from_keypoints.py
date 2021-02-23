@@ -45,7 +45,7 @@ class Face:
                 if face_prob < 0.5:
                     continue
 
-                face_image = rgb_img[int(face_bbox[1]): int(face_bbox[3]), int(face_bbox[0]): int(face_bbox[2])]
+                face_image = orig_img[int(face_bbox[1]): int(face_bbox[3]), int(face_bbox[0]): int(face_bbox[2])]
 
                 cv2.imwrite('{}/{}.jpg'.format(dir_path, pid), face_image)
                 is_finished = True
