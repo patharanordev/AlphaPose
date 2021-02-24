@@ -1,3 +1,7 @@
+
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
@@ -13,7 +17,6 @@ from yolo.util import write_results, dynamic_write_results
 from SPPE.src.main_fast_inference import *
 
 import ntpath
-import os
 import sys
 from tqdm import tqdm
 import time

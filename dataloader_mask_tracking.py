@@ -1,4 +1,6 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 import torch
 from torch.autograd import Variable
 import torch.utils.data as data
@@ -670,10 +672,12 @@ class DataWriter:
         self.data_recorder = DataRecorder()
 
     def clear_data(self):
-        self.data_recorder.clear_data()
+        # self.data_recorder.clear_data()
+        face.clear_data()
 
     def export_data(self, fname):
-        self.data_recorder.export_data(os.path.join(opt.outputpath, 'vis') , '{}'.format(fname))
+        # self.data_recorder.export_data(os.path.join(opt.outputpath, 'vis') , '{}'.format(fname))
+        face.export_data(os.path.join(opt.outputpath, 'vis', '{}.csv'.format(fname)))
 
     def start(self):
         # start a thread to read frames from the file video stream
@@ -742,8 +746,8 @@ class DataWriter:
                             cv2.imwrite(os.path.join(opt.outputpath, 'vis', im_name), img)
                         if opt.save_video:
                             self.stream.write(img)
-            else:
-                time.sleep(0.1)
+            # else:
+            #     time.sleep(0.1)
 
     
     def cropped(
@@ -817,6 +821,7 @@ class DataWriter:
         time.sleep(0.2)
         if self.Q.qsize() > 0:
             print('Remaining in queue : ', self.Q.qsize())
+            # self.Q.queue.clear()
         return not self.Q.empty()
 
     def save(self, boxes, scores, hm_data, pt1, pt2, orig_img, im_name):

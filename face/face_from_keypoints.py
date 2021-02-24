@@ -8,10 +8,10 @@ class Face:
         self.face_engine = CenterFace( landmarks=True)
         self.data = {}
 
-    def clear_data():
+    def clear_data(self):
         self.data = {}
 
-    def export_data(fpath):
+    def export_data(self, fpath):
         pd.DataFrame(self.data).T.to_csv(fpath)
 
     def export_face_img(self, tracked_objects, orig_img, dir_path, vdo_fname='id'):
