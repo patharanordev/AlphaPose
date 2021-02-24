@@ -11,6 +11,12 @@ import torch.multiprocessing as mp
 from alphapose.utils.transforms import get_func_heatmap_to_coord
 from alphapose.utils.pPose_nms import pose_nms, write_json
 
+from alphapose.utils.data_recorder import DataRecorder
+from alphapose.face.face_from_keypoints import Face
+import norfair
+
+face = Face()
+
 DEFAULT_VIDEO_SAVE_OPT = {
     'savepath': 'examples/res/1.mp4',
     'fourcc': cv2.VideoWriter_fourcc(*'mp4v'),
@@ -20,6 +26,16 @@ DEFAULT_VIDEO_SAVE_OPT = {
 
 EVAL_JOINTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
+detection_threshold = 0.2
+keypoint_dist_threshold = None
+def keypoints_distance(detected_pose, tracked_pose):
+    distances = np.linalg.norm(detected_pose.points - tracked_pose.estimate, axis=1)
+    match_num = np.count_nonzero(
+        (distances < keypoint_dist_threshold)
+        * (detected_pose.scores > detection_threshold)
+        * (tracked_pose.last_detection.scores > detection_threshold)
+    )
+    return 1 / (1 + match_num)
 
 class DataWriter():
     def __init__(self, cfg, opt, save_video=False,
@@ -47,6 +63,24 @@ class DataWriter():
             from trackers.PoseFlow.poseflow_infer import PoseFlowWrapper
             self.pose_flow_wrapper = PoseFlowWrapper(save_path=os.path.join(opt.outputpath, 'poseflow'))
 
+        self.tracker = norfair.Tracker(
+            distance_function=keypoints_distance,
+            distance_threshold=0.3,
+            detection_threshold=0.2
+        )
+        
+        self.data_recorder = DataRecorder()
+    
+    def clear_data(self):
+        # self.data_recorder.clear_data()
+        face.clear_data()
+
+    def export_data(self, fname):
+        fpath = os.path.join(self.opt.outputpath, 'vis', '{}.csv'.format(fname))
+        print(fpath)
+        # self.data_recorder.export_data(os.path.join(opt.outputpath, 'vis') , '{}'.format(fname))
+        face.export_data(fpath)
+
     def start_worker(self, target):
         if self.opt.sp:
             p = Thread(target=target, args=())
@@ -62,7 +96,7 @@ class DataWriter():
         return self
 
     def update(self):
-        final_result = []
+        # final_result = []
         norm_type = self.cfg.LOSS.get('NORM_TYPE', None)
         hm_size = self.cfg.DATA_PRESET.HEATMAP_SIZE
         if self.save_video:
@@ -84,8 +118,8 @@ class DataWriter():
                 # if the thread indicator variable is set (img is None), stop the thread
                 if self.save_video:
                     stream.release()
-                write_json(final_result, self.opt.outputpath, form=self.opt.format, for_eval=self.opt.eval)
-                print("Results have been written to json.")
+                # write_json(final_result, self.opt.outputpath, form=self.opt.format, for_eval=self.opt.eval)
+                # print("Results have been written to json.")
                 return
             # image channel RGB->BGR
             orig_img = np.array(orig_img, dtype=np.uint8)[:, :, ::-1]
@@ -137,8 +171,24 @@ class DataWriter():
                     for i in range(len(poseflow_result)):
                         result['result'][i]['idx'] = poseflow_result[i]['idx']
 
-                final_result.append(result)
+
+
+                global keypoint_dist_threshold
+                keypoint_dist_threshold = orig_img.shape[0] / 30
+                detections = [
+                    norfair.Detection(p['keypoints'].numpy(), scores=p['kp_score'].squeeze().numpy())
+                    for p in result['result']
+                ]
+                tracked_objects = self.tracker.update(detections=detections)
+                norfair.draw_tracked_objects(orig_img.copy(), tracked_objects)
+
+                # self.cropped(orig_img.copy(), tracked_objects)
+                face.export_face_img(tracked_objects, orig_img.copy(), os.path.join(self.opt.outputpath, 'vis'), vdo_fname='id')
+                
+
+                # final_result.append(result)
                 if self.opt.save_img or self.save_video or self.opt.vis:
+
                     if hm_data.size()[1] == 49:
                         from alphapose.utils.vis import vis_frame_dense as vis_frame
                     elif self.opt.vis_fast:

@@ -216,6 +216,8 @@ if __name__ == "__main__":
         data_len = det_loader.length
         im_names_desc = tqdm(range(data_len), dynamic_ncols=True)
 
+    writer.clear_data()
+
     batchSize = args.posebatch
     if args.flip:
         batchSize = int(batchSize / 2)
@@ -269,10 +271,13 @@ if __name__ == "__main__":
                 )
         print_finish_info()
         while(writer.running()):
-            time.sleep(1)
+            # time.sleep(1)
             print('===========================> Rendering remaining ' + str(writer.count()) + ' images in the queue...')
+        
+        writer.export_data(str(input_source))
         writer.stop()
         det_loader.stop()
+
     except Exception as e:
         print(repr(e))
         print('An error as above occurs when processing the images, please check it')
@@ -281,14 +286,16 @@ if __name__ == "__main__":
         print_finish_info()
         # Thread won't be killed when press Ctrl+C
         if args.sp:
+            writer.export_data(str(input_source))
             det_loader.terminate()
             while(writer.running()):
-                time.sleep(1)
+                # time.sleep(1)
                 print('===========================> Rendering remaining ' + str(writer.count()) + ' images in the queue...')
             writer.stop()
         else:
             # subprocesses are killed, manually clear queues
 
+            writer.export_data(str(input_source))
             det_loader.terminate()
             writer.terminate()
             writer.clear_queues()
