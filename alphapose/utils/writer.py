@@ -70,6 +70,11 @@ class DataWriter():
         )
         
         self.data_recorder = DataRecorder()
+
+        self.fname = ''
+
+    def set_fname(self, fname):
+        self.fname = fname
     
     def clear_data(self):
         # self.data_recorder.clear_data()
@@ -183,7 +188,7 @@ class DataWriter():
                 norfair.draw_tracked_objects(orig_img.copy(), tracked_objects)
 
                 # self.cropped(orig_img.copy(), tracked_objects)
-                face.export_face_img(tracked_objects, orig_img.copy(), os.path.join(self.opt.outputpath, 'vis'), vdo_fname='id')
+                face.export_face_img(tracked_objects, orig_img.copy(), os.path.join(self.opt.outputpath, 'vis'), vdo_fname=self.fname)
                 
 
                 # final_result.append(result)

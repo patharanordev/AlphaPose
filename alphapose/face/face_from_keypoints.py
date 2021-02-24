@@ -29,7 +29,10 @@ class Face:
             kp_score = person.last_detection.scores
             pid = person.id
 
-            self.data[pid] = { 'img_path':'{}-{}.jpg'.format(vdo_fname, pid), 'found_face':False }
+            self.data[pid] = { 
+                'info':'{}-{}'.format(pid, vdo_fname), 
+                'found_face':False 
+            }
 
             center_of_the_face = np.mean(keypoints[:5], axis=0)
             face_conf = np.mean(kp_score[:5], axis=0)

@@ -216,7 +216,9 @@ if __name__ == "__main__":
         data_len = det_loader.length
         im_names_desc = tqdm(range(data_len), dynamic_ncols=True)
 
+    fname = os.path.basename(input_source).split('.')[0]
     writer.clear_data()
+    writer.set_fname(fname)
 
     batchSize = args.posebatch
     if args.flip:
@@ -274,7 +276,7 @@ if __name__ == "__main__":
             # time.sleep(1)
             print('===========================> Rendering remaining ' + str(writer.count()) + ' images in the queue...')
         
-        writer.export_data(str(input_source))
+        writer.export_data('{}-{}'.format(fname, time.time()))
         writer.stop()
         det_loader.stop()
 
@@ -286,7 +288,7 @@ if __name__ == "__main__":
         print_finish_info()
         # Thread won't be killed when press Ctrl+C
         if args.sp:
-            writer.export_data(str(input_source))
+            writer.export_data('{}-{}'.format(fname, time.time()))
             det_loader.terminate()
             while(writer.running()):
                 # time.sleep(1)
@@ -295,7 +297,7 @@ if __name__ == "__main__":
         else:
             # subprocesses are killed, manually clear queues
 
-            writer.export_data(str(input_source))
+            writer.export_data('{}-{}'.format(fname, time.time()))
             det_loader.terminate()
             writer.terminate()
             writer.clear_queues()
